@@ -11,6 +11,7 @@ export class MergeController {
 
   @Post()
   async mergePDFs(@Body() mergeRequest: MergeRequest) {
+    console.log('mergggging', mergeRequest);
     const outputFileName = await this.mergeService.mergePDFs(mergeRequest);
 
     return {
