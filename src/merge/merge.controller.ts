@@ -30,6 +30,8 @@ export class MergeController {
     }
 
     // Set headers for file download
+    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:7000');
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
 
