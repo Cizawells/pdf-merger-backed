@@ -1,9 +1,9 @@
 // src/merge/merge.controller.ts
-import { Controller, Post, Body, Get, Param, Res } from '@nestjs/common';
-import { MergeService, MergeRequest } from './merge.service';
+import { Body, Controller, Get, Param, Post, Res } from '@nestjs/common';
 import { Response } from 'express';
-import * as path from 'path';
 import * as fs from 'fs';
+import * as path from 'path';
+import { MergeRequest, MergeService } from './merge.service';
 
 @Controller('merge')
 export class MergeController {
@@ -12,12 +12,12 @@ export class MergeController {
   @Post()
   async mergePDFs(@Body() mergeRequest: MergeRequest) {
     console.log('mergggging', mergeRequest);
-    const outputFileName = await this.mergeService.mergePDFs(mergeRequest);
+    const fileName = await this.mergeService.mergePDFs(mergeRequest);
 
     return {
       message: 'PDFs merged successfully',
-      outputFileName,
-      downloadUrl: `/merge/download/${outputFileName}`,
+      fileName,
+      downloadUrl: `/merge/download/${fileName}`,
     };
   }
 
