@@ -1,8 +1,8 @@
 // src/merge/merge.service.ts
-import { Injectable, BadRequestException } from '@nestjs/common';
-import { PDFDocument } from 'pdf-lib';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
+import { PDFDocument } from 'pdf-lib';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface MergeRequest {
@@ -15,7 +15,7 @@ export class MergeService {
   private readonly uploadsPath = './uploads';
   private readonly tempPath = './temp';
 
-  async mergePDFs(mergeRequest: MergeRequest): Promise<string> {
+  async mergePDFs(mergeRequest: MergeRequest): Promise<string | undefined> {
     const { fileIds, outputName } = mergeRequest;
 
     if (!fileIds || fileIds.length < 2) {
@@ -67,8 +67,9 @@ export class MergeService {
 
       return outputFileName;
     } catch (error) {
-      console.error('PDF merge error:', error);
-      throw new BadRequestException(`Failed to merge PDFs: ${error.message}`);
+      if (error instanceof Error) {
+        throw new BadRequestException(`Failed to merge PDFs: ${error.message}`);
+      }
     }
   }
 
