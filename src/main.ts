@@ -16,6 +16,15 @@ async function bootstrap() {
   // Enable validation pipes
   app.useGlobalPipes(new ValidationPipe());
 
+  // Enable CORS
+  app.enableCors({
+    origin: [
+      'https://pdf-merger-frontend-ivory.vercel.app', // your frontend domain
+    ],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true, // if you send cookies or auth headers
+  });
+
   // Set global prefix
   app.setGlobalPrefix('api');
 
