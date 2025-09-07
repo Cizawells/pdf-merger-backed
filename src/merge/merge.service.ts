@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PDFDocument } from 'pdf-lib';
 import { v4 as uuidv4 } from 'uuid';
+import ConvertApi from 'convertapi';
 
 export interface MergeRequest {
   fileIds: string[];
@@ -14,6 +15,17 @@ export interface MergeRequest {
 export class MergeService {
   private readonly uploadsPath = './uploads';
   private readonly tempPath = './temp';
+  private convertApi: ConvertApi;
+
+  constructor() {
+    // Initialize ConvertAPI with your secret key
+    // You should set CONVERTAPI_SECRET in your environment variables
+    const apiSecret = process.env.CONVERTAPI_SECRET;
+    if (!apiSecret) {
+      throw new Error('CONVERTAPI_SECRET environment variable is required');
+    }
+    this.convertApi = new ConvertApi(apiSecret);
+  }
 
   async mergePDFs(mergeRequest: MergeRequest): Promise<string | undefined> {
     const { fileIds, outputName } = mergeRequest;
@@ -25,10 +37,8 @@ export class MergeService {
     }
 
     try {
-      // Create new PDF document
-      const mergedPDF = await PDFDocument.create();
-
-      // Process each file in order
+      // Verify all files exist before proceeding
+      const filePaths: string[] = [];
       for (const fileId of fileIds) {
         const filePath = path.join(this.uploadsPath, fileId);
 
@@ -36,17 +46,7 @@ export class MergeService {
           throw new BadRequestException(`File not found: ${fileId}`);
         }
 
-        // Read PDF file
-        const pdfBytes = fs.readFileSync(filePath);
-
-        // Load PDF
-        const pdf = await PDFDocument.load(pdfBytes);
-
-        // Get all pages
-        const pages = await mergedPDF.copyPages(pdf, pdf.getPageIndices());
-
-        // Add pages to merged document
-        pages.forEach((page) => mergedPDF.addPage(page));
+        filePaths.push(filePath);
       }
 
       // Generate output filename
@@ -58,9 +58,17 @@ export class MergeService {
         fs.mkdirSync(this.tempPath, { recursive: true });
       }
 
-      // Save merged PDF
-      const mergedPDFBytes = await mergedPDF.save();
-      fs.writeFileSync(outputPath, mergedPDFBytes);
+      // Use the exact syntax from ConvertAPI docs
+      const result = await this.convertApi.convert(
+        'merge',
+        {
+          Files: filePaths,
+        },
+        'pdf',
+      );
+
+      // Use the file property and save method (like your working convert function)
+      await result.file.save(outputPath);
 
       // Clean up original files (optional)
       this.scheduleCleanup(fileIds, outputFileName);
