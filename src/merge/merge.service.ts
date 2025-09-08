@@ -2,7 +2,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PDFDocument } from 'pdf-lib';
 import { v4 as uuidv4 } from 'uuid';
 import ConvertApi from 'convertapi';
 

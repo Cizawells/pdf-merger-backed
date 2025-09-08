@@ -9,6 +9,9 @@ export interface SplitByPatternRequest {
   fileId: string;
   splitByPattern: string;
   outputName?: string;
+  options: {
+    pages: [];
+  };
 }
 
 export interface SplitByRangeRequest {
