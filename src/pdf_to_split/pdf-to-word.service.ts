@@ -26,9 +26,7 @@ export class PdfToWordService {
     this.convertApi = new ConvertApi(apiSecret);
   }
 
-  async convertPdfToWord(
-    convertRequest: ConvertRequest,
-  ): Promise<string | undefined> {
+  async splitPdf(convertRequest: ConvertRequest): Promise<string | undefined> {
     const { fileId, outputName } = convertRequest;
 
     if (!fileId) {

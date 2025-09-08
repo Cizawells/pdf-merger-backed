@@ -26,8 +26,7 @@ export class PdfToWordController {
   @Post()
   async convertPdfToWord(@Body() convertRequest: ConvertRequest) {
     console.log('Converting PDF to Word', convertRequest);
-    const fileName =
-      await this.pdfToWordService.convertPdfToWord(convertRequest);
+    const fileName = await this.pdfToWordService.splitPdf(convertRequest);
 
     return {
       message: 'PDF converted to Word successfully',
@@ -92,7 +91,7 @@ export class PdfToWordController {
 
     console.log('Upload and converting PDF to Word', file.filename);
 
-    const fileName = await this.pdfToWordService.convertPdfToWord({
+    const fileName = await this.pdfToWordService.splitPdf({
       fileId: file.filename,
     });
 
