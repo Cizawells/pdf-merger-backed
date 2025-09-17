@@ -1,5 +1,5 @@
 // src/split/split.controller.ts
-import { Body, Controller, Get, Param, Post, Res } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -17,15 +17,46 @@ export class SplitController {
   constructor(private readonly splitService: SplitService) {}
 
   @Post('pattern')
-  async splitByPattern(@Body() request: SplitByPatternRequest) {
-    console.log('Splitting PDF by pattern:', request);
-    const fileNames = await this.splitService.splitByPattern(request);
+  async splitByPattern(
+    @Body() request: SplitByPatternRequest,
+    @Query('createZip') createZip?: string,
+  ) {
+    try {
+      const shouldCreateZip = true;
+      const result = await this.splitService.splitByPattern(
+        request,
+        shouldCreateZip,
+      );
+      return {
+        success: true,
+        files: result.files,
+        downloadUrls: result.files.map(
+          (fileName) => `/split/download/${fileName}`,
+        ),
+        zipFile: result.zipFile
+          ? {
+              name: result.zipFile,
+              downloadUrl: `/split/download/${result.zipFile}`,
+            }
+          : null,
+        message: `PDF split successfully into ${result.files.length} files`,
+      };
+    } catch (error) {
+      if (error instanceof Error) {
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+    }
 
-    return {
-      message: 'PDF split by pattern successfully',
-      files: fileNames,
-      downloadUrls: fileNames.map((fileName) => `/split/download/${fileName}`),
-    };
+    // return {
+    //   message: 'PDF split by pattern successfully',
+    //   files: fileNames.files,
+    //   downloadUrls: fileNames.files.map(
+    //     (fileName) => `/split/download/${fileName}`,
+    //   ),
+    // };
   }
 
   @Post('range')

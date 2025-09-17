@@ -1,8 +1,11 @@
 // src/split/split.service.ts
 import { BadRequestException, Injectable } from '@nestjs/common';
+import * as archiver from 'archiver';
+
 import ConvertApi from 'convertapi';
 import * as fs from 'fs';
 import * as path from 'path';
+import { Readable } from 'stream';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface SplitByPatternRequest {
@@ -38,6 +41,11 @@ export interface ExtractPagesRequest {
   outputName?: string;
 }
 
+export interface SplitResult {
+  files: string[];
+  zipFile?: string; // Optional ZIP file name
+}
+
 @Injectable()
 export class SplitService {
   private readonly uploadsPath = './uploads';
@@ -53,7 +61,76 @@ export class SplitService {
     this.convertApi = new ConvertApi(apiSecret);
   }
 
-  async splitByPattern(request: SplitByPatternRequest): Promise<string[]> {
+  /**
+   * Creates a ZIP file from existing files and returns the ZIP as a stream
+   */
+  async createZipStream(
+    fileNames: string[],
+  ): Promise<{ stream: Readable; filename: string }> {
+    const zipFileName = `split-files-${Date.now()}.zip`;
+    const archive = archiver('zip', {
+      zlib: { level: 9 },
+    });
+
+    // Add each PDF file to the ZIP
+    fileNames.forEach((fileName) => {
+      const filePath = path.join(this.tempPath, fileName);
+      if (fs.existsSync(filePath)) {
+        archive.file(filePath, { name: fileName });
+      }
+    });
+
+    await archive.finalize();
+
+    return {
+      stream: archive,
+      filename: zipFileName,
+    };
+  }
+
+  private async createZipFromFiles(
+    fileNames: string[],
+    zipBaseName: string,
+  ): Promise<string> {
+    console.log('in the createZipFromFiles', fileNames, zipBaseName);
+    return new Promise((resolve, reject) => {
+      const zipFileName = `${zipBaseName}.zip`;
+      const zipPath = path.join(this.tempPath, zipFileName);
+      const output = fs.createWriteStream(zipPath);
+      const archive = archiver('zip', {
+        zlib: { level: 9 }, // Maximum compression
+      });
+
+      output.on('close', () => {
+        console.log(
+          `ZIP file created: ${zipFileName} (${archive.pointer()} total bytes)`,
+        );
+        resolve(zipFileName);
+      });
+
+      archive.on('error', (err) => {
+        reject(err);
+      });
+
+      archive.pipe(output);
+
+      // Add each PDF file to the ZIP
+      fileNames.forEach((fileName) => {
+        const filePath = path.join(this.tempPath, fileName);
+        if (fs.existsSync(filePath)) {
+          archive.file(filePath, { name: fileName });
+        }
+      });
+
+      archive.finalize();
+    });
+  }
+
+  async splitByPattern(
+    request: SplitByPatternRequest,
+    createZip: boolean = true,
+  ): Promise<SplitResult> {
+    console.log('splittitng', request, createZip);
     const { fileId, splitByPattern, outputName } = request;
 
     if (!fileId || !splitByPattern) {
@@ -66,10 +143,12 @@ export class SplitService {
     }
 
     try {
+      console.log('starting try');
       // Ensure temp directory exists
       if (!fs.existsSync(this.tempPath)) {
         fs.mkdirSync(this.tempPath, { recursive: true });
       }
+      console.log('before splitting try');
 
       const result = await this.convertApi.convert(
         'split',
@@ -79,12 +158,15 @@ export class SplitService {
         },
         'pdf',
       );
+      console.log('after splitting try, result', result);
 
       const outputFiles: string[] = [];
       const baseOutputName = outputName || `split-${uuidv4()}`;
-
+      console.log('before saving', result);
       // Handle multiple output files from split operation
       if (result.files && result.files.length > 0) {
+        console.log('insideee', result);
+
         for (let i = 0; i < result.files.length; i++) {
           const outputFileName = `${baseOutputName}-${i + 1}.pdf`;
           const outputPath = path.join(this.tempPath, outputFileName);
@@ -99,10 +181,21 @@ export class SplitService {
         outputFiles.push(outputFileName);
       }
 
-      // Schedule cleanup
-      this.scheduleCleanup([fileId], outputFiles);
+      console.log('about to zippp', createZip, outputFiles.length);
 
-      return outputFiles;
+      let zipFile: string | undefined;
+      if (createZip && outputFiles.length > 1) {
+        console.log('zip filllesss', outputFiles.length);
+        zipFile = await this.createZipFromFiles(
+          outputFiles,
+          `${baseOutputName}-archive`,
+        );
+      }
+
+      // Schedule cleanup
+      // this.scheduleCleanup([fileId], outputFiles);
+
+      return { files: outputFiles, zipFile };
     } catch (error) {
       if (error instanceof Error) {
         throw new BadRequestException(`Failed to split PDF: ${error.message}`);
